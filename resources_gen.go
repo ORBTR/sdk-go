@@ -8,11 +8,6 @@ import (
 	"strconv"
 )
 
-var (
-	_ = url.PathEscape
-	_ = strconv.FormatInt
-)
-
 // MessagesService calls the /v1/messages, /v1/messages/count_tokens routes.
 type MessagesService struct {
 	client *Client

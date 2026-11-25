@@ -537,9 +537,6 @@ func (c *Contract) streamFlag(body string) string {
 func (c *Contract) genResources() ([]byte, error) {
 	order, byKey := c.tree()
 	var b strings.Builder
-	b.WriteString(header)
-	b.WriteString("package orbtr\n\nimport (\n\t\"context\"\n\t\"net/url\"\n\t\"strconv\"\n)\n\n")
-	b.WriteString("var (\n\t_ = url.PathEscape\n\t_ = strconv.FormatInt\n)\n\n")
 	for _, n := range order {
 		svc := GoName(n.key) + "Service"
 		var paths []string
@@ -588,7 +585,23 @@ func (c *Contract) genResources() ([]byte, error) {
 		fmt.Fprintf(&b, "\t\t%s: new%sService(c),\n", GoName(r.key), GoName(r.key))
 	}
 	b.WriteString("\t}\n}\n")
-	return format.Source([]byte(b.String()))
+	body := b.String()
+	imports := []string{"context"}
+	if strings.Contains(body, "url.") {
+		imports = append(imports, "net/url")
+	}
+	if strings.Contains(body, "strconv.") {
+		imports = append(imports, "strconv")
+	}
+	var out strings.Builder
+	out.WriteString(header)
+	out.WriteString("package orbtr\n\nimport (\n")
+	for _, imp := range imports {
+		fmt.Fprintf(&out, "\t%q\n", imp)
+	}
+	out.WriteString(")\n\n")
+	out.WriteString(body)
+	return format.Source([]byte(out.String()))
 }
 
 func (c *Contract) genMethod(b *strings.Builder, svc string, op *Operation) error {
