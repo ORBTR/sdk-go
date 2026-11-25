@@ -1,0 +1,40 @@
+# The Go module is published by its tag: go get github.com/ORBTR/sdk-go@<tag> fetches it from the
+# repository. This workflow checks the tagged version, then asks the Go module proxy to fetch the tag so the
+# version is listed on proxy.golang.org and pkg.go.dev. The proxy can fetch only a public repository; while
+# the repository is private the step is skipped with a warning, and the module is reachable only by callers
+# with access to the repository (GOPRIVATE=github.com/ORBTR/*).
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+env:
+  GO_VERSION: '1.27'
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+      - run: go run ./internal/cmd/generate -check
+      - run: go vet ./...
+      - run: go test -race -count=1 ./...
+      - name: Check the tag names the module's version
+        run: |
+          version="$(sed -n 's/^const Version = "\(.*\)".*/\1/p' version.go)"
+          [ "${GITHUB_REF_NAME}" = "v${version}" ] || { echo "::error::tag ${GITHUB_REF_NAME} is not v${version}"; exit 1; }
+      - name: Ask the Go module proxy to fetch the tag
+        if: ${{ !github.event.repository.private }}
+        run: cd "$RUNNER_TEMP" && GOPROXY=https://proxy.golang.org GOWORK=off go list -m "github.com/ORBTR/sdk-go@${GITHUB_REF_NAME}"
+      - name: Name the proxy left out
+        if: ${{ github.event.repository.private }}
+        run: echo "::warning::the repository is private, so proxy.golang.org cannot fetch github.com/ORBTR/sdk-go@${GITHUB_REF_NAME}"

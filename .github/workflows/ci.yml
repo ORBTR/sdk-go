@@ -1,0 +1,27 @@
+# Vets and tests the module on the oldest Go release go.mod allows and the newest: the unit tests against
+# the recorded fixtures, the integration test against the local fake of the /v1 surface (which also builds
+# and runs every example), and the check that types_gen.go and resources_gen.go are what
+# contract/orbtr-v1.json generates.
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        go: ['1.22', '1.27']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go }}
+      - run: go run ./internal/cmd/generate -check
+      - run: go vet ./...
+      - run: go test -race -count=1 ./...
